@@ -15,8 +15,11 @@
  */
 package de.greenrobot.event;
 
+import java.lang.ref.WeakReference;
+
+
 final class Subscription {
-    final Object subscriber;
+    final private WeakReference<Object> subscriber;
     final SubscriberMethod subscriberMethod;
     final int priority;
     /**
@@ -26,7 +29,7 @@ final class Subscription {
     volatile boolean active;
 
     Subscription(Object subscriber, SubscriberMethod subscriberMethod, int priority) {
-        this.subscriber = subscriber;
+        this.subscriber = new WeakReference<Object>(subscriber);
         this.subscriberMethod = subscriberMethod;
         this.priority = priority;
         active = true;
@@ -34,17 +37,35 @@ final class Subscription {
 
     @Override
     public boolean equals(Object other) {
-        if (other instanceof Subscription) {
-            Subscription otherSubscription = (Subscription) other;
-            return subscriber == otherSubscription.subscriber
-                    && subscriberMethod.equals(otherSubscription.subscriberMethod);
-        } else {
+        if (!(other instanceof Subscription)) {
             return false;
         }
+
+        Subscription otherSubscription = (Subscription) other;
+        Object mySubscriber = subscriber.get();
+        Object otherSubscriber = otherSubscription.subscriber.get();
+
+        if ((mySubscriber == null) || (otherSubscriber == null)) {
+            return false;
+        }
+
+        return mySubscriber == otherSubscriber
+            && subscriberMethod.equals(otherSubscription.subscriberMethod);
     }
 
     @Override
     public int hashCode() {
-        return subscriber.hashCode() + subscriberMethod.methodString.hashCode();
+        int hashCode = subscriberMethod.methodString.hashCode();
+        Object mySubscriber = subscriber.get();
+
+        if (mySubscriber != null) {
+            hashCode += mySubscriber.hashCode();
+        }
+
+        return hashCode;
+    }
+
+    public Object getSubscriber() {
+        return subscriber.get();
     }
 }

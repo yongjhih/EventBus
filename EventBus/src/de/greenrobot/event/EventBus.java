@@ -339,7 +339,7 @@ public class EventBus {
             int size = subscriptions.size();
             for (int i = 0; i < size; i++) {
                 Subscription subscription = subscriptions.get(i);
-                if (subscription.subscriber == subscriber) {
+                if (subscription.getSubscriber() == subscriber) {
                     subscription.active = false;
                     subscriptions.remove(i);
                     i--;
@@ -583,13 +583,18 @@ public class EventBus {
     }
 
     void invokeSubscriber(Subscription subscription, Object event) throws Error {
+        Object subscriber = subscription.getSubscriber();
+        if (subscriber == null) {
+            return;
+        }
+
         try {
-            subscription.subscriberMethod.method.invoke(subscription.subscriber, event);
+            subscription.subscriberMethod.method.invoke(subscriber, event);
         } catch (InvocationTargetException e) {
             Throwable cause = e.getCause();
             if (event instanceof SubscriberExceptionEvent) {
                 // Don't send another SubscriberExceptionEvent to avoid infinite event recursion, just log
-                Log.e(TAG, "SubscriberExceptionEvent subscriber " + subscription.subscriber.getClass()
+                Log.e(TAG, "SubscriberExceptionEvent subscriber " + subscriber.getClass()
                         + " threw an exception", cause);
                 SubscriberExceptionEvent exEvent = (SubscriberExceptionEvent) event;
                 Log.e(TAG, "Initial event " + exEvent.causingEvent + " caused exception in "
@@ -597,10 +602,10 @@ public class EventBus {
             } else {
                 if (logSubscriberExceptions) {
                     Log.e(TAG, "Could not dispatch event: " + event.getClass() + " to subscribing class "
-                            + subscription.subscriber.getClass(), cause);
+                            + subscriber.getClass(), cause);
                 }
                 SubscriberExceptionEvent exEvent = new SubscriberExceptionEvent(this, cause, event,
-                        subscription.subscriber);
+                        subscriber);
                 post(exEvent);
             }
         } catch (IllegalAccessException e) {
